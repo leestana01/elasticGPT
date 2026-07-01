@@ -14,6 +14,7 @@ from ..events.build import downstream_event, pick_meta
 from ..kafka import topics as T
 from ..kafka.consumer import PermanentError
 from ..kafka.producer import publish
+from ..ops.metrics import record_stage
 
 log = logging.getLogger("worker.indexing")
 
@@ -52,4 +53,6 @@ def handle(event: dict) -> None:
         },
     )
     publish(T.CHUNK_INDEXED, evt, key=meta["note_id"])
+    record_stage("indexed", note_id=meta["note_id"], path=meta["path"], vault_id=meta["vault_id"],
+                 extra={"chunkCount": len(ids), "noteVersion": meta["note_version"]})
     log.info("indexed %s v%s: %d chunks", meta["path"], meta["note_version"], len(ids))

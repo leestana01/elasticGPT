@@ -9,6 +9,7 @@ from ..kafka.consumer import PermanentError
 from ..kafka.producer import publish
 from ..obsidian.hashing import content_hash_bytes
 from ..obsidian.parser import parse_markdown
+from ..ops.metrics import record_stage
 from ..vault.registry import get_vault_path
 
 log = logging.getLogger("worker.parser")
@@ -79,4 +80,5 @@ def handle_file_changed(event: dict) -> None:
         },
     )
     publish(T.NOTE_PARSED, evt, key=note_id)
+    record_stage("parsed", note_id=note_id, path=fc.path, vault_id=fc.vault_id)
     log.info("parsed %s v%d (%d sections)", fc.path, note_version, len(parsed["sections"]))
