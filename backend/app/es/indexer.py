@@ -16,7 +16,9 @@ def get_note(note_id: str) -> dict | None:
         return None
 
 
-def resolve_note_id_by_title(vault_id: str, title: str) -> str | None:
+def resolve_note_id_by_title(vault_id: str, title: str | None) -> str | None:
+    if not title:
+        return None
     es = get_es()
     try:
         res = es.search(
@@ -86,6 +88,13 @@ def index_edges(note_meta: dict) -> None:
     es = get_es()
     vault_id = note_meta["vault_id"]
     source_id = note_meta["note_id"]
+    # drop this note's previous edges so removed links / renames don't linger
+    es.delete_by_query(
+        index=write_alias("edges"),
+        query={"term": {"source_note_id": source_id}},
+        refresh=True,
+        conflicts="proceed",
+    )
     for target_title in note_meta.get("outgoing_links", []):
         target_id = resolve_note_id_by_title(vault_id, target_title)
         edge_id = f"{source_id}->{target_title}"
@@ -103,6 +112,30 @@ def index_edges(note_meta: dict) -> None:
                 "resolved": target_id is not None,
             },
         )
+
+
+def resolve_incoming_edges(note_meta: dict) -> None:
+    """Back-fill edges that pointed at this note by title but were unresolved
+    because the target note was not yet indexed (order-independent graph)."""
+    es = get_es()
+    es.update_by_query(
+        index=write_alias("edges"),
+        query={
+            "bool": {
+                "must": [
+                    {"term": {"vault_id": note_meta["vault_id"]}},
+                    {"term": {"target_title.kw": note_meta["title"]}},
+                    {"term": {"resolved": False}},
+                ]
+            }
+        },
+        script={
+            "source": "ctx._source.target_note_id = params.nid; ctx._source.resolved = true",
+            "params": {"nid": note_meta["note_id"]},
+        },
+        refresh=True,
+        conflicts="proceed",
+    )
 
 
 def delete_stale_chunks(note_id: str, keep_version: int) -> None:
@@ -128,6 +161,12 @@ def soft_delete_note(note_id: str) -> None:
         index=write_alias("chunks"),
         query={"term": {"note_id": note_id}},
         script={"source": "ctx._source.deleted = true"},
+        refresh=True,
+        conflicts="proceed",
+    )
+    es.delete_by_query(
+        index=write_alias("edges"),
+        query={"term": {"source_note_id": note_id}},
         refresh=True,
         conflicts="proceed",
     )

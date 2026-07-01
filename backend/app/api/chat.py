@@ -114,6 +114,7 @@ def chat(req: ChatRequest) -> dict:
             "topK": retr["top_k"],
             "candidateCount": retr["candidate_count"],
             "graphExpansion": graph,
+            "graph": retr.get("graph"),
         },
         "usage": gen["usage"],
         "latencyMs": gen["latencyMs"],
