@@ -6,6 +6,7 @@ from ..events.build import downstream_event, pick_meta
 from ..kafka import topics as T
 from ..kafka.consumer import PermanentError
 from ..kafka.producer import publish
+from ..ops.metrics import incr, record_stage
 from ..providers.factory import get_embedding_provider
 
 log = logging.getLogger("worker.embedding")
@@ -34,6 +35,7 @@ def handle_note_chunked(event: dict) -> None:
         # provider.embed may raise on transient/rate-limit errors → the consumer
         # retries with exponential backoff before falling through to the DLQ.
         vectors = provider.embed(texts)
+        incr("embedding_calls")
         if len(vectors) != len(texts):
             raise PermanentError("embedding count mismatch")
         for j, i in enumerate(to_embed):
@@ -47,6 +49,8 @@ def handle_note_chunked(event: dict) -> None:
     meta = pick_meta(event)
     evt = downstream_event(event, {**meta, "chunks": chunks})
     publish(T.CHUNK_EMBEDDED, evt, key=event.get("note_id"))
+    record_stage("embedded", note_id=event.get("note_id"), path=event.get("path"),
+                 vault_id=event.get("vault_id"), extra={"newEmbeddings": len(texts)})
     log.info(
         "embedded %s: %d chunks (%d cached, %d new)",
         event.get("path"), len(chunks), len(chunks) - len(texts), len(texts),

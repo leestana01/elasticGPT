@@ -10,6 +10,7 @@ from .api import (
     health,
     logs,
     note_updates,
+    ops,
     retrieval,
     vault as vault_api,
 )
@@ -54,6 +55,7 @@ app.include_router(graph.router)
 app.include_router(note_updates.router)
 app.include_router(feedback.router)
 app.include_router(logs.router)
+app.include_router(ops.router)
 
 
 @app.get("/")

@@ -19,6 +19,7 @@ def build_registry() -> dict:
     from .indexing_worker import handle as handle_indexing
     from .knowledge_worker import handle_answer_generated
     from .note_update_worker import handle_approved
+    from .ops_worker import handle as handle_ops
     from .parser_worker import handle_file_changed
 
     return {
@@ -35,5 +36,10 @@ def build_registry() -> dict:
             "topics": [T.NOTE_UPDATE_APPROVED],
             "group": "note_update",
             "handler": handle_approved,
+        },
+        "ops": {
+            "topics": [T.DEAD_LETTER, T.REINDEX_REQUESTED],
+            "group": "ops",
+            "handler": handle_ops,
         },
     }

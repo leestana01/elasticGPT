@@ -132,6 +132,9 @@ services:
   worker-note-update:
     <<: *worker-base
     environment: {<<: *worker-env, WORKER_TYPE: note_update}
+  worker-ops:
+    <<: *worker-base
+    environment: {<<: *worker-env, WORKER_TYPE: ops}
 
   # ---------------- Vault Watcher ----------------
   vault-watcher:
