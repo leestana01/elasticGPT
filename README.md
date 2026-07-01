@@ -70,7 +70,7 @@ CHAT_MODEL=gpt-4.1-mini
 
 ## 데모 시나리오
 
-> 아래 시나리오는 EPIC 단위로 순차 구현됩니다. Milestone 1(EPIC-01) 기준으로는 스택 기동·Sample Vault 자동 등록·상태 대시보드까지 확인할 수 있습니다.
+전체 파이프라인(수집 → 색인 → RAG → 자동 갱신 → 평가)이 구현되어 있으며, Mock Web UI에서 아래 흐름을 모두 시연할 수 있습니다.
 
 ### 샘플 질문
 - "Kafka 기반 RAG 설계에서 DLQ는 어떻게 처리하기로 했지?"
@@ -85,9 +85,29 @@ CHAT_MODEL=gpt-4.1-mini
 4. 승인 시 실제 Markdown 파일 생성/갱신 → Vault Watcher가 감지 → 재색인
 
 ### DLQ 시뮬레이션
-1. Embedding Worker에 강제 실패를 유발(예: 잘못된 이벤트 주입 또는 `FORCE_FAIL` 플래그)
-2. local retry 후 최종 실패 시 `rag.dead-letter` topic으로 이동
-3. Web UI의 **DLQ Viewer**에서 실패 이벤트 확인 후 재처리
+1. 잘못된 이벤트를 파이프라인 topic에 주입 (예: 필수 필드 누락한 `obsidian.note.parsed`)
+   ```bash
+   docker compose exec -T kafka bash -lc \
+     'echo "{\"event_id\":\"evt_bad\",\"schema_version\":1}" | \
+      /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server localhost:9092 --topic obsidian.note.parsed'
+   ```
+2. validation 오류(PermanentError)는 재시도 없이 `rag.dead-letter`로 이동 → `worker-ops`가 DB에 영속화
+3. Web UI의 **DLQ Viewer**에서 실패 topic·consumer·error·payload 확인 후 **재처리** 버튼으로 원본 topic 재발행
+
+## 주요 API
+
+| 영역 | 엔드포인트 |
+|---|---|
+| Vault | `GET/POST /api/vaults` |
+| RAG Chat | `POST /api/rag/chat` |
+| Retrieval Debug | `POST /api/retrieval/debug`, `GET /api/retrieval/chunk?chunkId=` |
+| Graph | `GET /api/graph/backlinks`, `GET /api/graph/links` |
+| Note Update | `GET /api/note-updates`, `POST /api/note-updates/{id}/approve\|reject` |
+| Feedback | `POST /api/feedback` |
+| 운영 | `GET /api/dlq`, `POST /api/dlq/{id}/reprocess`, `POST/GET /api/reindex`, `GET /api/metrics`, `GET /api/indexing/status` |
+| 평가 | `GET/POST /api/eval/golden`, `POST /api/eval/run`, `GET /api/eval/runs`, `GET /api/eval/compare` |
+
+전체 스키마는 http://localhost:8000/docs 참고.
 
 ## 프로젝트 구조
 
@@ -110,7 +130,35 @@ sample-vault/       데모용 Obsidian Vault
 
 Docker Compose는 다음 서비스를 실행합니다: `kafka`, `elasticsearch`, `postgres`, `redis`, `backend-api`, `worker-parser`, `worker-chunker`, `worker-embedding`, `worker-indexing`, `worker-knowledge`, `worker-note-update`, `web`.
 
-## 개발 노트
+## 구현 현황
 
-- 각 기능은 GitHub Issue(EPIC/User Story)에 대응하며 EPIC 단위 PR로 구현됩니다.
-- `.env`는 `.gitignore` 처리되어 커밋되지 않습니다.
+INIT-01 이하 10개 EPIC / 49개 User Story가 EPIC 단위 PR로 모두 구현·머지되었습니다.
+
+| EPIC | 내용 |
+|---|---|
+| 01 | Docker Compose 데모 실행 환경, Sample Vault, Mock/OpenAI Provider |
+| 02 | Vault 등록 API, 폴링 기반 Vault Watcher, file changed 이벤트 |
+| 03 | Kafka Ingestion Pipeline (Parser/Chunker/Embedding/Indexing) |
+| 04 | Elasticsearch 인덱스 매핑·versioning·alias |
+| 05 | Hybrid Retrieval + Context Builder + Answer Generation + Chat API |
+| 06 | Obsidian Graph Expansion (wikilink/backlink, boost) |
+| 07 | 질의응답 기반 Obsidian 자동 갱신 루프 (승인/거절, 신규/append, feedback) |
+| 08 | Mock Web UI (Dashboard/Chat/Citation/Retrieval Debug/Note Update/Indexing/DLQ) |
+| 09 | 운영 안정성 (retry/DLQ/idempotency/reindex/metrics) |
+| 10 | 품질 평가 (Golden Set, Recall@K/MRR, citation/groundedness) |
+
+## 설계 결정 및 알려진 한계
+
+프로젝트 진행 중 아래 사항은 합리적 기본값으로 자율 결정했습니다.
+
+- **AI Provider**: `.env`의 `AI_PROVIDER=openai`로 실제 임베딩/LLM을 사용하도록 설정했습니다. 키가 없거나 `mock`이면 결정론적 Mock으로 자동 폴백합니다. 임베딩 차원은 provider와 무관하게 1536으로 고정해 색인 mapping을 통일했습니다.
+- **Vault Watcher**: Docker bind mount(특히 macOS)에서 inotify가 신뢰성 없게 동작하므로 `PollingObserver`를 사용합니다.
+- **Graph edge 해석**: 색인 순서/refresh 지연에 영향을 받지 않도록 backlink/outgoing 해석을 쿼리 시점에 수행합니다.
+- **Milestone/우선순위**: EPIC 단위로 부여하고 하위 User Story가 상속합니다.
+- **자동화 테스트**: 별도 단위 테스트 파일은 추가하지 않았고, 각 EPIC을 실제 스택에서 end-to-end(REST·Kafka·ES 검증, Web UI는 Playwright)로 검증했습니다. 후속 작업으로 pytest 스위트 추가를 권장합니다.
+- **알려진 한계 — Out-of-domain 회피(abstain)**: 평가 결과 `abstainAccuracy = 0.0`. Hybrid Retrieval이 관련 없는 질문에도 항상 top chunk를 반환하고 생성 단계가 이를 근거로 답하기 때문에, 도메인 밖 질문에서 "모른다"고 보류하지 못하는 경우가 있습니다. 개선 방향은 retrieval score 하한(relevance gate)을 두어 근거가 약하면 insufficient로 처리하는 것입니다. 평가 프레임워크는 이 한계를 정량적으로 탐지합니다.
+
+## 참고
+
+- `.env`는 `.gitignore` 처리되어 커밋되지 않습니다 (`.env.example` 참고).
+- 각 기능은 GitHub Issue(EPIC/User Story)에 대응하며 EPIC 단위 PR로 구현되었습니다.
