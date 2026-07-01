@@ -66,3 +66,23 @@ input, textarea, select {
 .muted { color: var(--muted); }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 .loading { color: var(--muted); }
+
+.badge.warn { background: rgba(224,168,59,.16); color: var(--warn); }
+.badge.gen { background: rgba(106,156,255,.16); color: var(--accent); }
+.badge.orig { background: rgba(53,196,107,.14); color: var(--ok); }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 10px 0; }
+.row > input[type="text"], .row > input:not([type]) { flex: 1; }
+label.inline { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; width: auto; }
+label.inline input { width: auto; }
+select { width: auto; min-width: 160px; }
+textarea { resize: vertical; }
+pre {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 10px; overflow-x: auto; font-size: 12px; white-space: pre-wrap; word-break: break-word;
+}
+.page-h { color: var(--muted); font-size: 14px; margin: 4px 0 12px; }
+tr.in-ctx td { background: rgba(53,196,107,.08); }
+.cite { border-bottom: 1px solid var(--border); padding: 10px 0; }
+.cite:last-child { border-bottom: none; }
+.cite-head { cursor: pointer; }
+.cite-body { margin-top: 8px; }
