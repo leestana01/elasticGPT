@@ -1,7 +1,9 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from ..config import settings
+from ..es.client import get_es
+from ..es.indices import read_alias
 from ..rag.context import build_context
 from ..rag.retrieval import hybrid_retrieve
 
@@ -52,4 +54,26 @@ def retrieval_debug(req: RetrievalRequest) -> dict:
         "droppedChunkIds": ctx["dropped_chunk_ids"],
         "candidateCount": retr["candidate_count"],
         "mode": retr["mode"],
+    }
+
+
+@router.get("/chunk")
+def get_chunk(chunkId: str) -> dict:
+    """Full chunk content for the citation preview (US-08-03).
+
+    chunk_id is passed as a query param because it contains '/' which does not
+    survive a path parameter cleanly.
+    """
+    try:
+        res = get_es().get(index=read_alias("chunks"), id=chunkId)
+    except Exception:
+        raise HTTPException(status_code=404, detail="chunk not found")
+    s = res["_source"]
+    return {
+        "chunkId": chunkId,
+        "noteTitle": s.get("title"),
+        "path": s.get("path"),
+        "headingPath": s.get("heading_path"),
+        "content": s.get("content"),
+        "sourceType": s.get("source_type"),
     }
