@@ -6,6 +6,7 @@ from ..es.indexer import (
     index_chunks,
     index_edges,
     index_note,
+    resolve_incoming_edges,
     soft_delete_note,
 )
 from ..es.indices import write_alias
@@ -35,6 +36,7 @@ def handle(event: dict) -> None:
     ids = index_chunks(chunks, meta)
     index_note(meta, len(ids))
     index_edges(meta)
+    resolve_incoming_edges(meta)
     delete_stale_chunks(meta["note_id"], meta["note_version"])
     get_es().indices.refresh(index=write_alias("chunks"))
 

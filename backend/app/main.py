@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api import chat, health, retrieval, vault as vault_api
+from .api import chat, graph, health, retrieval, vault as vault_api
 from .db.database import init_db
 from .es.indices import bootstrap_indices
 from .kafka.admin import ensure_topics
@@ -41,6 +41,7 @@ app.include_router(health.router)
 app.include_router(vault_api.router)
 app.include_router(chat.router)
 app.include_router(retrieval.router)
+app.include_router(graph.router)
 
 
 @app.get("/")
