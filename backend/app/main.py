@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .api import (
     chat,
+    eval as eval_api,
     feedback,
     graph,
     health,
@@ -30,6 +31,9 @@ def _startup() -> None:
     ensure_topics()
     bootstrap_indices()
     ensure_sample_vault()
+    from .eval.golden import ensure_default_golden_set
+
+    ensure_default_golden_set()
     log.info("API startup complete")
 
 
@@ -56,6 +60,7 @@ app.include_router(note_updates.router)
 app.include_router(feedback.router)
 app.include_router(logs.router)
 app.include_router(ops.router)
+app.include_router(eval_api.router)
 
 
 @app.get("/")
