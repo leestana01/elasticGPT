@@ -1,9 +1,4 @@
-"""Maps a WORKER_TYPE to the topics it consumes and its handler.
-
-Handlers are filled in per epic (parser/chunker/embedding/indexing in EPIC-03,
-knowledge/note_update in EPIC-07). Until a handler is wired, the worker still
-runs and stays healthy as a live consumer.
-"""
+"""Maps a WORKER_TYPE to the topics it consumes and its handler."""
 import logging
 
 from ..kafka import topics as T
@@ -19,11 +14,21 @@ def _unimplemented(worker_type: str):
 
 
 def build_registry() -> dict:
+    from .chunker_worker import handle_note_parsed
+    from .embedding_worker import handle_note_chunked
+    from .indexing_worker import handle as handle_indexing
+    from .parser_worker import handle_file_changed
+
     return {
-        "parser": {"topics": [T.FILE_CHANGED], "group": "parser", "handler": _unimplemented("parser")},
-        "chunker": {"topics": [T.NOTE_PARSED], "group": "chunker", "handler": _unimplemented("chunker")},
-        "embedding": {"topics": [T.NOTE_CHUNKED], "group": "embedding", "handler": _unimplemented("embedding")},
-        "indexing": {"topics": [T.CHUNK_EMBEDDED], "group": "indexing", "handler": _unimplemented("indexing")},
+        "parser": {"topics": [T.FILE_CHANGED], "group": "parser", "handler": handle_file_changed},
+        "chunker": {"topics": [T.NOTE_PARSED], "group": "chunker", "handler": handle_note_parsed},
+        "embedding": {"topics": [T.NOTE_CHUNKED], "group": "embedding", "handler": handle_note_chunked},
+        "indexing": {
+            "topics": [T.CHUNK_EMBEDDED, T.NOTE_DELETED],
+            "group": "indexing",
+            "handler": handle_indexing,
+        },
+        # implemented in EPIC-07
         "knowledge": {"topics": [T.ANSWER_GENERATED], "group": "knowledge", "handler": _unimplemented("knowledge")},
         "note_update": {
             "topics": [T.NOTE_UPDATE_APPROVED],
