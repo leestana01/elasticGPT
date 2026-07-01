@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .api import health, vault as vault_api
 from .db.database import init_db
+from .es.indices import bootstrap_indices
 from .kafka.admin import ensure_topics
 from .logging_conf import setup_logging
 from .providers.factory import active_provider_name
@@ -17,6 +18,7 @@ def _startup() -> None:
     log.info("starting API (ai_provider=%s)", active_provider_name())
     init_db()
     ensure_topics()
+    bootstrap_indices()
     ensure_sample_vault()
     log.info("API startup complete")
 
