@@ -133,6 +133,12 @@ services:
     <<: *worker-base
     environment: {<<: *worker-env, WORKER_TYPE: note_update}
 
+  # ---------------- Vault Watcher ----------------
+  vault-watcher:
+    <<: *worker-base
+    command: ["python", "-m", "app.obsidian.watcher_main"]
+    environment: {<<: *worker-env}
+
   # ---------------- Mock Web UI ----------------
   web:
     build: ./web

@@ -44,6 +44,27 @@ def register_vault(name: str, path: str, user_id: str | None = None, vault_id: s
         return vid, "REGISTERED", _to_dict(vault)
 
 
+def ensure_sample_vault() -> dict | None:
+    """Idempotently register the mounted sample vault (US-01-02).
+
+    Used by both the API and the vault-watcher on startup so either can run first.
+    """
+    if not settings.auto_register_sample_vault:
+        return None
+    path = os.path.join(settings.vault_root, settings.default_vault_name)
+    candidate = path if os.path.isdir(path) else settings.vault_root
+    try:
+        _, status, vault = register_vault(
+            settings.default_vault_name, candidate, settings.default_user_id,
+            vault_id=settings.default_vault_id,
+        )
+        log.info("sample vault %s -> %s (%s)", candidate, status, vault["vaultId"])
+        return vault
+    except VaultValidationError as e:
+        log.warning("sample vault auto-register skipped: %s", e)
+        return None
+
+
 def list_vaults() -> list[dict]:
     with session_scope() as session:
         return [_to_dict(v) for v in session.query(Vault).order_by(Vault.created_at).all()]
