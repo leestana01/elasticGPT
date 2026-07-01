@@ -94,6 +94,31 @@ class ReindexJob(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class GoldenItem(Base):
+    __tablename__ = "golden_items"
+
+    item_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    vault_id: Mapped[str] = mapped_column(String(64), index=True)
+    question: Mapped[str] = mapped_column(Text)
+    expected_note_paths: Mapped[list] = mapped_column(JSON, default=list)
+    expected_chunk_ids: Mapped[list] = mapped_column(JSON, default=list)
+    expected_answer: Mapped[str | None] = mapped_column(Text, nullable=True)
+    must_cite: Mapped[list] = mapped_column(JSON, default=list)
+    should_abstain: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class EvalRun(Base):
+    __tablename__ = "eval_runs"
+
+    run_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    vault_id: Mapped[str] = mapped_column(String(64), index=True)
+    top_k: Mapped[int] = mapped_column(Integer, default=8)
+    metrics: Mapped[dict] = mapped_column(JSON, default=dict)
+    results: Mapped[list] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class Feedback(Base):
     __tablename__ = "feedbacks"
 
