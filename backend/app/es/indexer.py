@@ -7,6 +7,29 @@ from .indices import read_alias, write_alias
 log = logging.getLogger("es.indexer")
 
 
+def index_qa_knowledge(candidate: dict) -> None:
+    es = get_es()
+    es.index(
+        index=write_alias("qa"),
+        id=candidate["candidateId"],
+        document={
+            "candidate_id": candidate["candidateId"],
+            "query_id": candidate.get("queryId"),
+            "answer_id": candidate.get("answerId"),
+            "vault_id": candidate.get("vaultId"),
+            "summary": candidate.get("summary"),
+            "source_question": candidate.get("sourceQuestion"),
+            "source_answer": candidate.get("sourceAnswer"),
+            "related_notes": candidate.get("relatedNotes", []),
+            "citations": candidate.get("citations", []),
+            "status": candidate.get("status"),
+            "target_note_path": candidate.get("targetNotePath"),
+            "markdown_patch": candidate.get("markdownPatch"),
+            "created_at": now_iso(),
+        },
+    )
+
+
 def get_note(note_id: str) -> dict | None:
     es = get_es()
     try:

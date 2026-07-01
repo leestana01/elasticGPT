@@ -17,6 +17,8 @@ def build_registry() -> dict:
     from .chunker_worker import handle_note_parsed
     from .embedding_worker import handle_note_chunked
     from .indexing_worker import handle as handle_indexing
+    from .knowledge_worker import handle_answer_generated
+    from .note_update_worker import handle_approved
     from .parser_worker import handle_file_changed
 
     return {
@@ -28,11 +30,10 @@ def build_registry() -> dict:
             "group": "indexing",
             "handler": handle_indexing,
         },
-        # implemented in EPIC-07
-        "knowledge": {"topics": [T.ANSWER_GENERATED], "group": "knowledge", "handler": _unimplemented("knowledge")},
+        "knowledge": {"topics": [T.ANSWER_GENERATED], "group": "knowledge", "handler": handle_answer_generated},
         "note_update": {
             "topics": [T.NOTE_UPDATE_APPROVED],
             "group": "note_update",
-            "handler": _unimplemented("note_update"),
+            "handler": handle_approved,
         },
     }
